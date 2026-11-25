@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>株式学習ゲーム 振り返り＆情報共有シート</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Noto Sans JP & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #f8fafc;
+        }
+        .tab-active {
+            border-bottom: 3px solid #2563eb;
+            color: #2563eb;
+            font-weight: 700;
+        }
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- ヘッダー -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600 p-2 rounded-lg">
+                    <i class="fa-solid fa-chart-line text-xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold tracking-tight">株式学習ゲーム 振り返りノート</h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">元本500万円からの経済探究・4人班共有システム</p>
+                </div>
+            </div>
+            
+            <!-- 班・ログイン状態表示 -->
+            <div class="flex items-center space-x-3">
+                <div id="room-badge" class="hidden bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-full text-xs sm:text-sm flex items-center space-x-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>ルーム: <strong id="current-room-display" class="text-blue-400">---</strong></span>
+                    <span class="text-slate-500">|</span>
+                    <span id="current-user-display" class="font-medium text-slate-200">未設定</span>
+                </div>
+                <button id="change-room-btn" class="hidden text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg transition">
+                    <i class="fa-solid fa-right-from-bracket mr-1"></i>切替
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- メインコンテンツエリア -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- 1. ルーム参加・メンバー設定画面（初期表示） -->
+        <div id="setup-screen" class="max-w-md mx-auto bg-white rounded-2xl shadow-lg border border-slate-200 p-6 sm:p-8 mt-6">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-100 text-blue-600 mb-3">
+                    <i class="fa-solid fa-users text-2xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-800">班のルームに参加する</h2>
+                <p class="text-sm text-slate-500 mt-1">同じ「班コード」を入力すると、4人の記録がリアルタイムで共有されます。</p>
+            </div>
+
+            <form id="join-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">班コード（あいことば） <span class="text-red-500">*</span></label>
+                    <input type="text" id="input-room-id" required placeholder="例: 2年3組-1班" 
+                        class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                    <p class="text-xs text-slate-400 mt-1">※班の4人で全く同じ文字を入力してください</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">あなたの名前（ニックネーム可） <span class="text-red-500">*</span></label>
+                    <input type="text" id="input-user-name" required placeholder="例: 佐藤 健太" 
+                        class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
+                </div>
+
+                <button type="submit" id="join-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition flex items-center justify-center space-x-2 mt-6">
+                    <span>学習シートを開く</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </form>
+
+            <!-- 学習のポイント＆調べる視点ガイド -->
+            <div class="mt-8 pt-6 border-t border-slate-100 space-y-4">
+                <div>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-blue-600 mb-2">
+                        <i class="fa-solid fa-magnifying-glass-chart mr-1"></i>銘柄を調べる4つの視点（班で分担・意識しよう）
+                    </h3>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
+                            <span class="font-bold text-slate-800 block">① ニュース・社会動向</span>
+                            <span class="text-slate-500 text-[11px]">流行・新技術・世界情勢</span>
+                        </div>
+                        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
+                            <span class="font-bold text-slate-800 block">② 経済指標・政策</span>
+                            <span class="text-slate-500 text-[11px]">円安/円高・金利・物価</span>
+                        </div>
+                        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
+                            <span class="font-bold text-slate-800 block">③ 企業の業績・強み</span>
+                            <span class="text-slate-500 text-[11px]">売上・新商品・シェア</span>
+                        </div>
+                        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
+                            <span class="font-bold text-slate-800 block">④ リスク・分散</span>
+                            <span class="text-slate-500 text-[11px]">異なる業種への分散投資</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">このアプリで振り返るサイクル</h3>
+                    <ul class="space-y-1.5 text-xs text-slate-600">
+                        <li class="flex items-start space-x-2">
+                            <i class="fa-solid fa-check-circle text-emerald-500 mt-0.5"></i>
+                            <span><strong>判断の記録：</strong>株価×株数と「重視した情報・予想」を残す</span>
+                        </li>
+                        <li class="flex items-start space-x-2">
+                            <i class="fa-solid fa-check-circle text-emerald-500 mt-0.5"></i>
+                            <span><strong>結果の追記：</strong>後から現在株価や売却値を入れ、損益を自動計算</span>
+                        </li>
+                        <li class="flex items-start space-x-2">
+                            <i class="fa-solid fa-check-circle text-emerald-500 mt-0.5"></i>
+                            <span><strong>考えの変化：</strong>予想と結果のギャップから経済の仕組みを学ぶ</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. メインダッシュボード（ルーム参加後に表示） -->
+        <div id="dashboard-screen" class="hidden space-y-6">
+            
+            <!-- ナビゲーションタブ -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 px-2 sm:px-6 flex overflow-x-auto">
+                <button data-tab="overview" class="tab-btn tab-active py-4 px-4 text-sm whitespace-nowrap flex items-center space-x-2">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>1. 班の資産・全員の状況</span>
+                </button>
+                <button data-tab="trade-log" class="tab-btn py-4 px-4 text-sm text-slate-500 hover:text-slate-800 whitespace-nowrap flex items-center space-x-2">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <span>2. 売買判断＆振り返り記録</span>
+                </button>
+                <button data-tab="group-reflection" class="tab-btn py-4 px-4 text-sm text-slate-500 hover:text-slate-800 whitespace-nowrap flex items-center space-x-2">
+                    <i class="fa-solid fa-comments"></i>
+                    <span>3. 班のまとめ・経済の学び</span>
+                </button>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- タブ1: 班の資産・全員の状況 -->
+            <!-- ========================================== -->
+            <div id="tab-overview" class="tab-content space-y-6">
+                
+                <!-- 自分の現在資産クイック更新カード -->
+                <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-md">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <span class="bg-white/20 text-xs font-bold px-2.5 py-1 rounded-full">あなたの最新状況（元本: 5,000,000円）</span>
+                            <h2 class="text-xl sm:text-2xl font-bold mt-2">株式学習ゲームの現在資産を入力しよう</h2>
+                            <p class="text-blue-100 text-xs sm:text-sm mt-1">アプリ上の「総資産（現金＋株式時価）」を入力すると、班のメンバーに自動で共有されます。</p>
+                        </div>
+                        <form id="update-asset-form" class="flex flex-wrap sm:flex-nowrap items-end gap-3 bg-white/10 p-4 rounded-xl backdrop-blur-sm">
+                            <div>
+                                <label class="block text-xs text-blue-100 mb-1">現在の総資産（円）</label>
+                                <input type="number" id="my-current-asset" required min="0" step="100" placeholder="5150000"
+                                    class="w-40 px-3 py-2 rounded-lg text-slate-900 font-bold text-right outline-none focus:ring-2 focus:ring-yellow-400">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-blue-100 mb-1">現在の投資方針一言</label>
+                                <input type="text" id="my-strategy-memo" placeholder="例: AI関連と円安銘柄中心"
+                                    class="w-48 px-3 py-2 rounded-lg text-slate-900 text-sm outline-none focus:ring-2 focus:ring-yellow-400">
+                            </div>
+                            <button type="submit" class="bg-yellow-400 hover:bg-yellow-300 text-slate-900 font-bold px-4 py-2 rounded-lg shadow transition whitespace-nowrap">
+                                <i class="fa-solid fa-rotate mr-1"></i>更新
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 班メンバー4人の比較カードグリッド -->
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-lg font-bold text-slate-800 flex items-center">
+                            <i class="fa-solid fa-users-viewfinder text-blue-600 mr-2"></i>
+                            班メンバーの資産＆運用状況（最大4名）
+                        </h3>
+                        <span class="text-xs text-slate-500">※元本 500万円 との比較</span>
+                    </div>
+                    
+                    <div id="members-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <!-- JSでメンバーカードを動的生成 -->
+                    </div>
+                </div>
+
+                <!-- 班全体の統計サマリー -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                    <h3 class="text-base font-bold text-slate-800 mb-4">班全体のパフォーマンス比較</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <p class="text-xs text-slate-500">班の平均総資産</p>
+                            <p id="group-avg-asset" class="text-2xl font-bold text-slate-800 mt-1">5,000,000 円</p>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <p class="text-xs text-slate-500">班の平均損益（元本比）</p>
+                            <p id="group-avg-profit" class="text-2xl font-bold text-slate-800 mt-1">0 円 (0.0%)</p>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <p class="text-xs text-slate-500">班の総売買振り返り数</p>
+                            <p id="group-total-trades" class="text-2xl font-bold text-blue-600 mt-1">0 件</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- タブ2: 売買判断＆振り返り記録 -->
+            <!-- ========================================== -->
+            <div id="tab-trade-log" class="tab-content hidden space-y-6">
+                
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <!-- 左側：新規売買・振り返り入力フォーム -->
+                    <div class="lg:col-span-5 bg-white rounded-2xl p-6 shadow-sm border border-slate-200 h-fit">
+                        <div class="flex items-center justify-between mb-1">
+                            <h3 id="trade-form-title" class="text-lg font-bold text-slate-800 flex items-center">
+                                <i class="fa-solid fa-plus-circle text-blue-600 mr-2"></i>
+                                <span>売買の判断と記録を追加</span>
+                            </h3>
+                            <button type="button" id="cancel-edit-btn" class="hidden text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 px-2.5 py-1 rounded-lg font-bold">
+                                編集キャンセル
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-4">取引内容と「予想」を記録し、後から「結果・振り返り」を追記できます。</p>
+
+                        <!-- 調べる視点リマインダー -->
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4">
+                            <p class="text-[11px] font-bold text-slate-600 mb-1.5"><i class="fa-solid fa-compass text-blue-500 mr-1"></i>調べる視点（クリックで重視した情報に追加）</p>
+                            <div class="flex flex-wrap gap-1.5">
+                                <span class="perspective-tag cursor-pointer text-[11px] bg-white border border-slate-300 text-slate-700 px-2 py-0.5 rounded-md hover:border-blue-400 hover:text-blue-600" data-val="ニュース・社会動向">📰 ニュース・社会動向</span>
+                                <span class="perspective-tag cursor-pointer text-[11px] bg-white border border-slate-300 text-slate-700 px-2 py-0.5 rounded-md hover:border-blue-400 hover:text-blue-600" data-val="為替・金利・経済指標">💱 為替・金利・経済</span>
+                                <span class="perspective-tag cursor-pointer text-[11px] bg-white border border-slate-300 text-slate-700 px-2 py-0.5 rounded-md hover:border-blue-400 hover:text-blue-600" data-val="企業業績・新商品">🏢 企業業績・新商品</span>
+                                <span class="perspective-tag cursor-pointer text-[11px] bg-white border border-slate-300 text-slate-700 px-2 py-0.5 rounded-md hover:border-blue-400 hover:text-blue-600" data-val="株価チャート・割安度">📈 株価チャート・割安度</span>
+                            </div>
+                        </div>
+
+                        <form id="trade-form" class="space-y-3.5">
+                            <input type="hidden" id="edit-trade-id" value="">
+
+                            <!-- 売買区分・日付 -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">売買区分 <span class="text-red-500">*</span></label>
+                                    <select id="trade-action" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white font-bold">
+                                        <option value="購入" class="text-red-600">購入（買い）</option>
+                                        <option value="売却" class="text-blue-600">売却（売り）</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">取引日付 <span class="text-red-500">*</span></label>
+                                    <input type="date" id="trade-date" required
+                                        class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm outline-none focus:border-blue-500">
+                                </div>
+                            </div>
+
+                            <!-- 企業名・業種 -->
+                            <div class="grid grid-cols-5 gap-2">
+                                <div class="col-span-3">
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">企業名（銘柄） <span class="text-red-500">*</span></label>
+                                    <input type="text" id="trade-company" required placeholder="例: トヨタ自動車"
+                                        class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm outline-none focus:border-blue-500">
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">業種</label>
+                                    <select id="trade-sector" class="w-full px-2 py-2 rounded-lg border border-slate-300 text-xs bg-white h-[38px]">
+                                        <option value="IT・通信">IT・通信</option>
+                                        <option value="電機・半導体">電機・半導体</option>
+                                        <option value="自動車・機械">自動車・機械</option>
+                                        <option value="小売・食品">小売・食品</option>
+                                        <option value="金融・商社">金融・商社</option>
+                                        <option value="医療・その他">医療・その他</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- 株価 × 株数 ＝ 取引金額自動計算 -->
+                            <div class="bg-slate-100 p-3 rounded-xl border border-slate-200 space-y-2">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-bold text-slate-700 mb-1">取引株価（円） <span class="text-red-500">*</span></label>
+                                        <input type="number" id="trade-price" required min="1" step="any" placeholder="例: 2500"
+                                            class="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-sm text-right font-bold bg-white outline-none focus:border-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-slate-700 mb-1">株数（株） <span class="text-red-500">*</span></label>
+                                        <input type="number" id="trade-shares" required min="1" step="1" placeholder="例: 100"
+                                            class="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-sm text-right font-bold bg-white outline-none focus:border-blue-500">
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between pt-1.5 border-t border-slate-200/80 text-xs">
+                                    <span class="text-slate-600 font-medium">取引金額（自動計算）:</span>
+                                    <span id="calc-total-amount" class="text-base font-bold text-slate-900">0 円</span>
+                                </div>
+                            </div>
+
+                            <!-- 判断の記録：重視した情報・理由・今後の予想 -->
+                            <div class="bg-blue-50/70 p-3.5 rounded-xl border border-blue-100 space-y-2.5">
+                                <p class="text-xs font-bold text-blue-900"><i class="fa-solid fa-brain mr-1"></i>【取引時】判断の記録</p>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-blue-800 mb-1">重視した情報・買った（売った）理由 <span class="text-red-500">*</span></label>
+                                    <textarea id="trade-reason" required rows="2" placeholder="どんなニュースやデータを重視し、なぜこのタイミングと判断したか？"
+                                        class="w-full px-3 py-1.5 rounded-lg border border-blue-200 text-xs outline-none focus:border-blue-500 bg-white"></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-blue-800 mb-1">今後の予想（どう動くと予測したか） <span class="text-red-500">*</span></label>
+                                    <input type="text" id="trade-prediction" required placeholder="例: 円安と新車販売好調で1ヶ月後に3,000円まで上がると予想"
+                                        class="w-full px-3 py-1.5 rounded-lg border border-blue-200 text-xs outline-none focus:border-blue-500 bg-white">
+                                </div>
+                            </div>
+
+                            <!-- 結果の入力＆振り返り（後から追記・編集可能） -->
+                            <div class="bg-amber-50/70 p-3.5 rounded-xl border border-amber-200 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <p class="text-xs font-bold text-amber-900"><i class="fa-solid fa-chart-line mr-1"></i>【事後】結果の入力＆振り返り</p>
+                                    <span class="text-[10px] bg-amber-200/70 text-amber-900 px-2 py-0.5 rounded font-bold">後から追記OK</span>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 gap-2 items-end">
+                                    <div>
+                                        <label class="block text-[11px] font-bold text-amber-900 mb-1">現在株価 または 売却株価（円）</label>
+                                        <input type="number" id="trade-result-price" min="0" step="any" placeholder="後から入力"
+                                            class="w-full px-3 py-1.5 rounded-lg border border-amber-300 text-xs text-right font-bold bg-white outline-none focus:border-amber-500">
+                                    </div>
+                                    <div class="bg-white/80 px-2.5 py-1.5 rounded-lg border border-amber-200 text-right">
+                                        <span class="block text-[10px] text-slate-500">概算損益（自動計算）</span>
+                                        <span id="calc-profit-preview" class="text-xs font-bold text-slate-600">---</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-[11px] font-bold text-amber-900 mb-1">振り返り（予想と結果の違い・自分の考えの変化）</label>
+                                    <textarea id="trade-reflection" rows="2" placeholder="予想は当たったか？外れた場合、何が原因だったか？自分の考えはどう変わったか？"
+                                        class="w-full px-3 py-1.5 rounded-lg border border-amber-200 text-xs outline-none focus:border-amber-500 bg-white"></textarea>
+                                </div>
+                            </div>
+
+                            <button type="submit" id="trade-submit-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl shadow transition">
+                                <i class="fa-solid fa-paper-plane mr-1"></i>記録を保存・班に共有する
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- 右側：班全員の売買＆振り返りタイムライン（企業別・メンバー別フィルタ） -->
+                    <div class="lg:col-span-7 space-y-4">
+                        <div class="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <h3 class="font-bold text-slate-800 flex items-center">
+                                    <i class="fa-solid fa-list-check text-blue-600 mr-2"></i>
+                                    履歴の一覧・振り返りシート
+                                </h3>
+                                <span id="filtered-count-badge" class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-bold">0件</span>
+                            </div>
+                            
+                            <!-- フィルタリングバー（メンバー別・企業別） -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-400 mb-1">メンバーで絞り込み</label>
+                                    <select id="filter-member" class="w-full text-xs border border-slate-300 rounded-lg px-3 py-1.5 bg-slate-50 font-medium">
+                                        <option value="ALL">全員の記録を表示</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-400 mb-1">企業別で絞り込み</label>
+                                    <select id="filter-company" class="w-full text-xs border border-slate-300 rounded-lg px-3 py-1.5 bg-slate-50 font-medium">
+                                        <option value="ALL">すべての企業（銘柄）</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="trades-timeline" class="space-y-4">
+                            <!-- JSでカードを動的生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- タブ3: 班のまとめ・経済の学び -->
+            <!-- ========================================== -->
+            <div id="tab-group-reflection" class="tab-content hidden space-y-6">
+                
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                    <div class="border-b border-slate-100 pb-4 mb-6">
+                        <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full">授業のまとめ・発表準備</span>
+                        <h2 class="text-xl font-bold text-slate-800 mt-2">4人の経験から「経済の仕組み」を言語化しよう</h2>
+                        <p class="text-sm text-slate-500 mt-1">班のメンバーそれぞれの成功・失敗の記録を見比べながら、共通する気づきをまとめます。</p>
+                    </div>
+
+                    <form id="summary-form" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- 問い1 -->
+                            <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                                <label class="block text-sm font-bold text-slate-800 mb-2">
+                                    <span class="bg-blue-600 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs mr-1.5">1</span>
+                                    株価が大きく動いたとき、背景にどんな「社会・経済のニュース」がありましたか？
+                                </label>
+                                <p class="text-xs text-slate-500 mb-3">例：為替（円安・円高）、日銀の金利政策、海外の景気、物価高、新技術など</p>
+                                <textarea id="sum-q1" rows="4" placeholder="班の中で話題になったニュースと株価の関係を記入..."
+                                    class="w-full p-3 rounded-lg border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                            </div>
+
+                            <!-- 問い2 -->
+                            <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                                <label class="block text-sm font-bold text-slate-800 mb-2">
+                                    <span class="bg-blue-600 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs mr-1.5">2</span>
+                                    班の4人で「投資の判断（スタイル）」にどんな違いがありましたか？
+                                </label>
+                                <p class="text-xs text-slate-500 mb-3">例：身近な企業に投資した人、ニュースを見て素早く売買した人、分散投資をした人など</p>
+                                <textarea id="sum-q2" rows="4" placeholder="メンバー同士の比較から見えた違いや、うまくいった工夫を記入..."
+                                    class="w-full p-3 rounded-lg border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                            </div>
+
+                            <!-- 問い3 -->
+                            <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                                <label class="block text-sm font-bold text-slate-800 mb-2">
+                                    <span class="bg-blue-600 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs mr-1.5">3</span>
+                                    今回の模擬投資で「一番の失敗（または反省点）」とその原因は何ですか？
+                                </label>
+                                <p class="text-xs text-slate-500 mb-3">例：高値づかみをしてしまった、1つの業種に集中しすぎた、根拠なく買ってしまった等</p>
+                                <textarea id="sum-q3" rows="4" placeholder="失敗から学んだリスク管理の大切さを記入..."
+                                    class="w-full p-3 rounded-lg border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                            </div>
+
+                            <!-- 問い4 -->
+                            <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                                <label class="block text-sm font-bold text-slate-800 mb-2">
+                                    <span class="bg-blue-600 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs mr-1.5">4</span>
+                                    株式会社の仕組みや株式市場は、私たちの社会にどんな役割を果たしていますか？
+                                </label>
+                                <p class="text-xs text-slate-500 mb-3">投資家のお金が企業に集まることで、社会がどう変わるかを考えよう</p>
+                                <textarea id="sum-q4" rows="4" placeholder="授業を通じた最終的な結論・感想を記入..."
+                                    class="w-full p-3 rounded-lg border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200">
+                            <p id="summary-last-updated" class="text-xs text-slate-400">最終保存: 未保存</p>
+                            <div class="flex items-center space-x-3 w-full sm:w-auto">
+                                <button type="button" id="copy-report-btn" class="flex-1 sm:flex-none bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl text-sm transition">
+                                    <i class="fa-solid fa-copy mr-1"></i>発表用テキストをコピー
+                                </button>
+                                <button type="submit" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm shadow transition">
+                                    <i class="fa-solid fa-save mr-1"></i>班のまとめを保存・共有
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- カスタム通知トースト（alertの代替） -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <!-- 確認モーダル（confirmの代替） -->
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl">
+            <h3 class="text-lg font-bold text-slate-800 mb-2">確認</h3>
+            <p id="confirm-message" class="text-sm text-slate-600 mb-6">この操作を実行しますか？</p>
+            <div class="flex justify-end space-x-3">
+                <button id="confirm-cancel" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">キャンセル</button>
+                <button id="confirm-ok" class="px-4 py-2 rounded-lg text-sm font-bold bg-red-600 text-white hover:bg-red-700">削除する</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase & アプリケーションロジック -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==========================================
+        // 1. Firebase 初期化と状態管理
+        // ==========================================
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'stock-game-reflection-default';
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+
+        // アプリの現在のセッション状態
+        const state = {
+            roomId: '',
+            userName: '',
+            memberId: '', // 班内での一意識別子
+            members: [],
+            trades: [],
+            summary: {},
+            unsubscribers: []
+        };
+
+        const INITIAL_CAPITAL = 5000000; // 元本500万円
+
+        // トースト通知表示関数
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgColor = type === 'error' ? 'bg-red-600' : (type === 'info' ? 'bg-slate-800' : 'bg-emerald-600');
+            const icon = type === 'error' ? 'fa-circle-exclamation' : (type === 'info' ? 'fa-circle-info' : 'fa-circle-check');
+            
+            toast.className = `${bgColor} text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center space-x-2 transform transition-all duration-300 translate-y-2 opacity-0`;
+            toast.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // カスタム確認ダイアログ
+        function showConfirm(message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirm-modal');
+                document.getElementById('confirm-message').textContent = message;
+                modal.classList.remove('hidden');
+
+                const cleanup = (result) => {
+                    modal.classList.add('hidden');
+                    document.getElementById('confirm-ok').onclick = null;
+                    document.getElementById('confirm-cancel').onclick = null;
+                    resolve(result);
+                };
+
+                document.getElementById('confirm-ok').onclick = () => cleanup(true);
+                document.getElementById('confirm-cancel').onclick = () => cleanup(false);
+            });
+        }
+
+        // 数値フォーマット（円）
+        function formatYen(num) {
+            return Number(num).toLocaleString('ja-JP') + ' 円';
+        }
+
+        // ==========================================
+        // 2. 認証のセットアップ
+        // ==========================================
+        async function initFirebase() {
+            try {
+                if (typeof __firebase_config === 'undefined') {
+                    console.warn("Firebase config not found. Running in local fallback mode.");
+                    return;
+                }
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    currentUser = user;
+                });
+            } catch (error) {
+                console.error("Firebase init error:", error);
+                showToast("通信の初期化に失敗しました。再読み込みしてください。", "error");
+            }
+        }
+
+        // ==========================================
+        // 3. ルーム参加・データ同期ロジック
+        // ==========================================
+        document.getElementById('join-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUser && db) {
+                showToast("認証待機中です。もう一度ボタンを押してください。", "info");
+                return;
+            }
+
+            const rawRoomId = document.getElementById('input-room-id').value.trim();
+            const userName = document.getElementById('input-user-name').value.trim();
+
+            if (!rawRoomId || !userName) return;
+
+            // ルームIDのサニタイズ（スラッシュ等を除去）
+            const safeRoomId = rawRoomId.replace(/[\/\.#\$\[\]]/g, '_');
+            state.roomId = safeRoomId;
+            state.userName = userName;
+            // 同じ名前で再ログインした場合は同じメンバーデータを更新できるようにIDを生成
+            state.memberId = `${safeRoomId}_${userName}`;
+
+            // 取引日付の初期値を今日に設定
+            document.getElementById('trade-date').valueAsDate = new Date();
+
+            // UI切り替え
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('dashboard-screen').classList.remove('hidden');
+            document.getElementById('room-badge').classList.remove('hidden');
+            document.getElementById('change-room-btn').classList.remove('hidden');
+            document.getElementById('current-room-display').textContent = rawRoomId;
+            document.getElementById('current-user-display').textContent = userName;
+
+            // メンバー情報をFirestoreに登録
+            await registerMemberIfNeeded();
+
+            // リアルタイムリスナー開始
+            subscribeToRoomData();
+            showToast(`「${rawRoomId}」の共有シートに接続しました！`);
+        });
+
+        // ルーム切替ボタン
+        document.getElementById('change-room-btn').addEventListener('click', () => {
+            state.unsubscribers.forEach(unsub => unsub());
+            state.unsubscribers = [];
+            document.getElementById('dashboard-screen').classList.add('hidden');
+            document.getElementById('room-badge').classList.add('hidden');
+            document.getElementById('change-room-btn').classList.add('hidden');
+            document.getElementById('setup-screen').classList.remove('hidden');
+        });
+
+        // メンバー初期登録
+        async function registerMemberIfNeeded() {
+            if (!db || !currentUser) return;
+            try {
+                const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'stock_members', state.memberId);
+                await setDoc(memberRef, {
+                    roomId: state.roomId,
+                    userName: state.userName,
+                    updatedAt: Date.now()
+                }, { merge: true });
+            } catch (err) {
+                console.error("Member register error:", err);
+            }
+        }
+
+        // Firestore リアルタイム購読（RULE 1 & RULE 2 準拠: シンプルなcollectionクエリ＋メモリ内フィルタリング）
+        function subscribeToRoomData() {
+            if (!db || !currentUser) return;
+
+            // 既存のリスナー解除
+            state.unsubscribers.forEach(unsub => unsub());
+            state.unsubscribers = [];
+
+            // 1. メンバー一覧の購読
+            const membersCol = collection(db, 'artifacts', appId, 'public', 'data', 'stock_members');
+            const unsubMembers = onSnapshot(membersCol, (snapshot) => {
+                const list = [];
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    if (data.roomId === state.roomId) {
+                        list.push({ id: docSnap.id, ...data });
+                    }
+                });
+                // 更新日時順にソート
+                list.sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
+                state.members = list;
+                renderMembers();
+                updateMemberFilterDropdown();
+            }, (error) => {
+                console.error("Members snapshot error:", error);
+            });
+
+            // 2. 売買・振り返りログの購読
+            const tradesCol = collection(db, 'artifacts', appId, 'public', 'data', 'stock_trades');
+            const unsubTrades = onSnapshot(tradesCol, (snapshot) => {
+                const list = [];
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    if (data.roomId === state.roomId) {
+                        list.push({ id: docSnap.id, ...data });
+                    }
+                });
+                // 取引日付または作成日時の新しい順にソート
+                list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                state.trades = list;
+                updateCompanyFilterDropdown();
+                renderTrades();
+                renderMembers(); // 取引件数のバッジ更新のため
+            }, (error) => {
+                console.error("Trades snapshot error:", error);
+            });
+
+            // 3. 班のまとめシートの購読
+            const summaryDoc = doc(db, 'artifacts', appId, 'public', 'data', 'stock_summaries', state.roomId);
+            const unsubSummary = onSnapshot(summaryDoc, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    state.summary = data;
+                    // 自分が入力中でなければ反映
+                    if (document.activeElement.id !== 'sum-q1') document.getElementById('sum-q1').value = data.q1 || '';
+                    if (document.activeElement.id !== 'sum-q2') document.getElementById('sum-q2').value = data.q2 || '';
+                    if (document.activeElement.id !== 'sum-q3') document.getElementById('sum-q3').value = data.q3 || '';
+                    if (document.activeElement.id !== 'sum-q4') document.getElementById('sum-q4').value = data.q4 || '';
+                    if (data.updatedAt) {
+                        const dateStr = new Date(data.updatedAt).toLocaleString('ja-JP');
+                        document.getElementById('summary-last-updated').textContent = `最終保存: ${dateStr}（${data.updatedBy || ''}）`;
+                    }
+                }
+            }, (error) => {
+                console.error("Summary snapshot error:", error);
+            });
+
+            state.unsubscribers.push(unsubMembers, unsubTrades, unsubSummary);
+        }
+
+        // ==========================================
+        // 4. タブ切り替え＆自動計算・補助機能
+        // ==========================================
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('tab-active');
+                    b.classList.add('text-slate-500');
+                });
+                btn.classList.add('tab-active');
+                btn.classList.remove('text-slate-500');
+
+                const targetId = `tab-${btn.dataset.tab}`;
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(targetId).classList.remove('hidden');
+            });
+        });
+
+        // 調べる視点タグのワンクリック挿入
+        document.querySelectorAll('.perspective-tag').forEach(tag => {
+            tag.addEventListener('click', () => {
+                const target = document.getElementById('trade-reason');
+                const label = `【${tag.dataset.val}】`;
+                if (!target.value.includes(label)) {
+                    target.value = target.value ? `${target.value}\n${label} ` : `${label} `;
+                }
+                target.focus();
+            });
+        });
+
+        // 取引金額＆概算損益のリアルタイム自動計算
+        function updateTradeCalculations() {
+            const price = parseFloat(document.getElementById('trade-price').value) || 0;
+            const shares = parseInt(document.getElementById('trade-shares').value, 10) || 0;
+            const resultPriceInput = document.getElementById('trade-result-price').value;
+            const action = document.getElementById('trade-action').value;
+
+            const totalAmount = Math.round(price * shares);
+            document.getElementById('calc-total-amount').textContent = formatYen(totalAmount);
+
+            const profitPreviewEl = document.getElementById('calc-profit-preview');
+            if (price > 0 && shares > 0 && resultPriceInput !== '') {
+                const resultPrice = parseFloat(resultPriceInput) || 0;
+                // 購入の場合は (現在/売却株価 - 購入株価) * 株数、売却の場合は (売却株価 - 取得目安) もしくは差額として計算
+                const diffPerShare = action === '購入' ? (resultPrice - price) : (price - resultPrice);
+                const profit = Math.round(diffPerShare * shares);
+                const rate = ((diffPerShare / price) * 100).toFixed(1);
+                const isPlus = profit >= 0;
+
+                profitPreviewEl.textContent = `${isPlus ? '+' : ''}${formatYen(profit)} (${isPlus ? '+' : ''}${rate}%)`;
+                profitPreviewEl.className = `text-xs font-bold ${isPlus ? 'text-emerald-600' : 'text-red-600'}`;
+            } else {
+                profitPreviewEl.textContent = '結果株価を入力で計算';
+                profitPreviewEl.className = 'text-xs font-bold text-slate-400';
+            }
+        }
+
+        ['trade-price', 'trade-shares', 'trade-result-price', 'trade-action'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateTradeCalculations);
+            document.getElementById(id).addEventListener('change', updateTradeCalculations);
+        });
+
+        // ==========================================
+        // 5. 資産の更新とメンバーカードの描画
+        // ==========================================
+        document.getElementById('update-asset-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!db || !currentUser) return;
+
+            const assetVal = Number(document.getElementById('my-current-asset').value);
+            const strategyMemo = document.getElementById('my-strategy-memo').value.trim();
+
+            try {
+                const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'stock_members', state.memberId);
+                await setDoc(memberRef, {
+                    roomId: state.roomId,
+                    userName: state.userName,
+                    currentAsset: assetVal,
+                    strategyMemo: strategyMemo,
+                    updatedAt: Date.now()
+                }, { merge: true });
+
+                showToast("現在の総資産を班に共有しました！");
+            } catch (err) {
+                console.error("Asset update error:", err);
+                showToast("更新に失敗しました。", "error");
+            }
+        });
+
+        function renderMembers() {
+            const grid = document.getElementById('members-grid');
+            grid.innerHTML = '';
+
+            let totalAssetSum = 0;
+            let activeCount = 0;
+
+            // 最大4枠を表示（参加済みメンバー＋空き枠）
+            for (let i = 0; i < 4; i++) {
+                const member = state.members[i];
+                const card = document.createElement('div');
+
+                if (member) {
+                    const asset = typeof member.currentAsset === 'number' ? member.currentAsset : INITIAL_CAPITAL;
+                    const diff = asset - INITIAL_CAPITAL;
+                    const diffPercent = ((diff / INITIAL_CAPITAL) * 100).toFixed(2);
+                    const isPlus = diff >= 0;
+                    const isMe = member.userName === state.userName;
+                    const tradeCount = state.trades.filter(t => t.userName === member.userName).length;
+
+                    totalAssetSum += asset;
+                    activeCount++;
+
+                    // 自分のフォームに現在値を初期セット（未入力時）
+                    if (isMe && !document.getElementById('my-current-asset').value && member.currentAsset) {
+                        document.getElementById('my-current-asset').value = member.currentAsset;
+                        document.getElementById('my-strategy-memo').value = member.strategyMemo || '';
+                    }
+
+                    card.className = `bg-white rounded-2xl p-5 border ${isMe ? 'border-blue-400 ring-2 ring-blue-100' : 'border-slate-200'} shadow-sm flex flex-col justify-between transition`;
+                    card.innerHTML = `
+                        <div>
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <span class="inline-block text-[11px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 mb-1">
+                                        メンバー ${i + 1}
+                                    </span>
+                                    <h4 class="font-bold text-slate-800 text-base flex items-center">
+                                        ${escapeHtml(member.userName)}
+                                        ${isMe ? '<span class="ml-1.5 text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded">あなた</span>' : ''}
+                                    </h4>
+                                </div>
+                                <span class="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
+                                    記録 ${tradeCount}件
+                                </span>
+                            </div>
+
+                            <div class="mt-4 pt-3 border-t border-slate-100">
+                                <p class="text-xs text-slate-400">現在の総資産</p>
+                                <p class="text-xl font-bold text-slate-900 mt-0.5">${formatYen(asset)}</p>
+                                <div class="mt-1 flex items-center text-xs font-bold ${isPlus ? 'text-emerald-600' : 'text-red-600'}">
+                                    <i class="fa-solid ${isPlus ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} mr-1"></i>
+                                    <span>${isPlus ? '+' : ''}${formatYen(diff)} (${isPlus ? '+' : ''}${diffPercent}%)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 bg-slate-50 p-2.5 rounded-xl text-xs text-slate-600">
+                            <span class="font-bold text-slate-500 block text-[10px] mb-0.5">投資方針・注目している視点:</span>
+                            ${member.strategyMemo ? escapeHtml(member.strategyMemo) : '<span class="text-slate-400 italic">未入力</span>'}
+                        </div>
+                    `;
+                } else {
+                    // 空きスロット（4人未満の場合）
+                    card.className = "bg-slate-50/70 rounded-2xl p-5 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center min-h-[210px]";
+                    card.innerHTML = `
+                        <div class="w-10 h-10 rounded-full bg-slate-200/70 text-slate-400 flex items-center justify-center mb-2">
+                            <i class="fa-solid fa-user-plus"></i>
+                        </div>
+                        <p class="text-sm font-bold text-slate-400">メンバー待機中 (${i + 1}人目)</p>
+                        <p class="text-xs text-slate-400 mt-1">同じ班コードで参加すると<br>ここに表示されます</p>
+                    `;
+                }
+                grid.appendChild(card);
+            }
+
+            // 班全体のサマリー更新
+            if (activeCount > 0) {
+                const avgAsset = Math.round(totalAssetSum / activeCount);
+                const avgProfit = avgAsset - INITIAL_CAPITAL;
+                const avgPercent = ((avgProfit / INITIAL_CAPITAL) * 100).toFixed(2);
+                const isPlus = avgProfit >= 0;
+
+                document.getElementById('group-avg-asset').textContent = formatYen(avgAsset);
+                const profitEl = document.getElementById('group-avg-profit');
+                profitEl.textContent = `${isPlus ? '+' : ''}${formatYen(avgProfit)} (${isPlus ? '+' : ''}${avgPercent}%)`;
+                profitEl.className = `text-2xl font-bold mt-1 ${isPlus ? 'text-emerald-600' : 'text-red-600'}`;
+            }
+            document.getElementById('group-total-trades').textContent = `${state.trades.length} 件`;
+        }
+
+        // ==========================================
+        // 6. 売買判断＆振り返り記録の追加・編集・表示・削除
+        // ==========================================
+        function resetTradeForm() {
+            document.getElementById('edit-trade-id').value = '';
+            document.getElementById('trade-form-title').innerHTML = '<i class="fa-solid fa-plus-circle text-blue-600 mr-2"></i><span>売買の判断と記録を追加</span>';
+            document.getElementById('trade-submit-btn').innerHTML = '<i class="fa-solid fa-paper-plane mr-1"></i>記録を保存・班に共有する';
+            document.getElementById('trade-submit-btn').classList.replace('bg-amber-600', 'bg-blue-600');
+            document.getElementById('trade-submit-btn').classList.replace('hover:bg-amber-700', 'hover:bg-blue-700');
+            document.getElementById('cancel-edit-btn').classList.add('hidden');
+
+            document.getElementById('trade-action').value = '購入';
+            document.getElementById('trade-date').valueAsDate = new Date();
+            document.getElementById('trade-company').value = '';
+            document.getElementById('trade-price').value = '';
+            document.getElementById('trade-shares').value = '';
+            document.getElementById('trade-reason').value = '';
+            document.getElementById('trade-prediction').value = '';
+            document.getElementById('trade-result-price').value = '';
+            document.getElementById('trade-reflection').value = '';
+            updateTradeCalculations();
+        }
+
+        document.getElementById('cancel-edit-btn').addEventListener('click', resetTradeForm);
+
+        // 既存レコードを編集フォームに読み込む
+        function startEditTrade(trade) {
+            document.getElementById('edit-trade-id').value = trade.id;
+            document.getElementById('trade-form-title').innerHTML = '<i class="fa-solid fa-pen-to-square text-amber-600 mr-2"></i><span>記録の編集・結果の追記</span>';
+            document.getElementById('trade-submit-btn').innerHTML = '<i class="fa-solid fa-check mr-1"></i>変更・結果の追記を保存する';
+            document.getElementById('trade-submit-btn').classList.replace('bg-blue-600', 'bg-amber-600');
+            document.getElementById('trade-submit-btn').classList.replace('hover:bg-blue-700', 'hover:bg-amber-700');
+            document.getElementById('cancel-edit-btn').classList.remove('hidden');
+
+            document.getElementById('trade-action').value = trade.action || '購入';
+            document.getElementById('trade-date').value = trade.tradeDate || '';
+            document.getElementById('trade-company').value = trade.company || '';
+            document.getElementById('trade-sector').value = trade.sector || 'IT・通信';
+            document.getElementById('trade-price').value = trade.price || '';
+            document.getElementById('trade-shares').value = trade.shares || '';
+            document.getElementById('trade-reason').value = trade.reason || '';
+            document.getElementById('trade-prediction').value = trade.prediction || '';
+            document.getElementById('trade-result-price').value = (trade.resultPrice !== null && trade.resultPrice !== undefined) ? trade.resultPrice : '';
+            document.getElementById('trade-reflection').value = trade.reflection || '';
+
+            updateTradeCalculations();
+            // フォーム位置へスムーズスクロール
+            document.getElementById('trade-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            showToast("結果の追記や内容の編集ができます", "info");
+        }
+
+        document.getElementById('trade-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!db || !currentUser) return;
+
+            const editId = document.getElementById('edit-trade-id').value;
+            const action = document.getElementById('trade-action').value;
+            const tradeDate = document.getElementById('trade-date').value;
+            const sector = document.getElementById('trade-sector').value;
+            const company = document.getElementById('trade-company').value.trim();
+            const price = parseFloat(document.getElementById('trade-price').value) || 0;
+            const shares = parseInt(document.getElementById('trade-shares').value, 10) || 0;
+            const totalAmount = Math.round(price * shares);
+            const reason = document.getElementById('trade-reason').value.trim();
+            const prediction = document.getElementById('trade-prediction').value.trim();
+            
+            const resultPriceRaw = document.getElementById('trade-result-price').value;
+            const resultPrice = resultPriceRaw !== '' ? parseFloat(resultPriceRaw) : null;
+            let profit = null;
+            if (resultPrice !== null && price > 0 && shares > 0) {
+                const diffPerShare = action === '購入' ? (resultPrice - price) : (price - resultPrice);
+                profit = Math.round(diffPerShare * shares);
+            }
+            const reflection = document.getElementById('trade-reflection').value.trim();
+
+            if (!company || !reason) return;
+
+            try {
+                if (editId) {
+                    // 既存データの更新（結果追記・編集）
+                    const tradeDoc = doc(db, 'artifacts', appId, 'public', 'data', 'stock_trades', editId);
+                    await updateDoc(tradeDoc, {
+                        action,
+                        tradeDate,
+                        sector,
+                        company,
+                        price,
+                        shares,
+                        totalAmount,
+                        reason,
+                        prediction,
+                        resultPrice,
+                        profit,
+                        reflection,
+                        updatedAt: Date.now()
+                    });
+                    showToast("記録を更新（結果・振り返りを反映）しました！");
+                } else {
+                    // 新規作成
+                    const tradesCol = collection(db, 'artifacts', appId, 'public', 'data', 'stock_trades');
+                    await addDoc(tradesCol, {
+                        roomId: state.roomId,
+                        userName: state.userName,
+                        action,
+                        tradeDate,
+                        sector,
+                        company,
+                        price,
+                        shares,
+                        totalAmount,
+                        reason,
+                        prediction,
+                        resultPrice,
+                        profit,
+                        reflection,
+                        createdAt: Date.now()
+                    });
+                    showToast("売買の記録を保存し、班に共有しました！");
+                }
+
+                resetTradeForm();
+            } catch (err) {
+                console.error("Trade save error:", err);
+                showToast("保存に失敗しました。", "error");
+            }
+        });
+
+        // メンバーフィルターの更新
+        function updateMemberFilterDropdown() {
+            const select = document.getElementById('filter-member');
+            const currentVal = select.value;
+            select.innerHTML = '<option value="ALL">全員の記録を表示</option>';
+            
+            state.members.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.userName;
+                opt.textContent = `${m.userName} の記録`;
+                select.appendChild(opt);
+            });
+            if ([...select.options].some(o => o.value === currentVal)) {
+                select.value = currentVal;
+            }
+        }
+
+        // 企業別フィルターの更新
+        function updateCompanyFilterDropdown() {
+            const select = document.getElementById('filter-company');
+            const currentVal = select.value;
+            const companies = [...new Set(state.trades.map(t => t.company).filter(Boolean))];
+            
+            select.innerHTML = '<option value="ALL">すべての企業（銘柄）</option>';
+            companies.forEach(comp => {
+                const count = state.trades.filter(t => t.company === comp).length;
+                const opt = document.createElement('option');
+                opt.value = comp;
+                opt.textContent = `${comp} (${count}件)`;
+                select.appendChild(opt);
+            });
+            if ([...select.options].some(o => o.value === currentVal)) {
+                select.value = currentVal;
+            }
+        }
+
+        document.getElementById('filter-member').addEventListener('change', renderTrades);
+        document.getElementById('filter-company').addEventListener('change', renderTrades);
+
+        // タイムライン描画
+        function renderTrades() {
+            const container = document.getElementById('trades-timeline');
+            const filterUser = document.getElementById('filter-member').value;
+            const filterCompany = document.getElementById('filter-company').value;
+            container.innerHTML = '';
+
+            let filtered = state.trades;
+            if (filterUser !== 'ALL') {
+                filtered = filtered.filter(t => t.userName === filterUser);
+            }
+            if (filterCompany !== 'ALL') {
+                filtered = filtered.filter(t => t.company === filterCompany);
+            }
+
+            document.getElementById('filtered-count-badge').textContent = `${filtered.length}件表示中`;
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl p-8 text-center border border-slate-200">
+                        <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                            <i class="fa-solid fa-clipboard-list text-xl"></i>
+                        </div>
+                        <p class="text-sm font-bold text-slate-600">該当する売買の記録がありません</p>
+                        <p class="text-xs text-slate-400 mt-1">左のフォームから、企業名・株価・株数と判断理由を記録しましょう！</p>
+                    </div>
+                `;
+                return;
+            }
+
+            filtered.forEach(trade => {
+                const isMine = trade.userName === state.userName;
+                const dateLabel = trade.tradeDate || new Date(trade.createdAt).toLocaleDateString('ja-JP');
+                
+                // アクションに応じたバッジ色
+                const isBuy = trade.action && trade.action.includes('購入');
+                const badgeClass = isBuy ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700';
+
+                // 株価・株数・取引金額の表示
+                const priceText = trade.price ? `${Number(trade.price).toLocaleString()}円` : '-';
+                const sharesText = trade.shares ? `${Number(trade.shares).toLocaleString()}株` : '-';
+                const totalText = trade.totalAmount ? formatYen(trade.totalAmount) : '-';
+
+                // 結果＆概算損益表示
+                let resultHtml = '';
+                if (trade.resultPrice !== null && trade.resultPrice !== undefined && trade.profit !== null) {
+                    const isPlus = trade.profit >= 0;
+                    const rate = trade.totalAmount > 0 ? ((trade.profit / trade.totalAmount) * 100).toFixed(1) : '0.0';
+                    resultHtml = `
+                        <div class="flex flex-wrap items-center gap-2 text-xs">
+                            <span class="text-slate-500">結果株価: <strong class="text-slate-800">${Number(trade.resultPrice).toLocaleString()}円</strong></span>
+                            <span class="font-bold px-2.5 py-0.5 rounded-lg ${isPlus ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}">
+                                概算損益: ${isPlus ? '+' : ''}${formatYen(trade.profit)} (${isPlus ? '+' : ''}${rate}%)
+                            </span>
+                        </div>
+                    `;
+                } else {
+                    resultHtml = `
+                        <span class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-lg">
+                            <i class="fa-regular fa-clock mr-1"></i>結果未入力（「結果追記・編集」から後から入力できます）
+                        </span>
+                    `;
+                }
+
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-3";
+                card.innerHTML = `
+                    <!-- ヘッダー行：ユーザー・日付・区分・編集/削除ボタン -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-7 h-7 rounded-full bg-slate-800 text-white text-xs font-bold flex items-center justify-center">
+                                ${escapeHtml(trade.userName.charAt(0))}
+                            </span>
+                            <div>
+                                <span class="font-bold text-sm text-slate-800">${escapeHtml(trade.userName)}</span>
+                                <span class="text-xs text-slate-500 ml-2"><i class="fa-regular fa-calendar mr-1"></i>${escapeHtml(dateLabel)}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-bold px-2.5 py-1 rounded-full ${badgeClass}">${escapeHtml(trade.action)}</span>
+                            ${isMine ? `
+                                <button data-id="${trade.id}" class="edit-trade-btn text-xs bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-2.5 py-1 rounded-lg transition">
+                                    <i class="fa-solid fa-pen mr-1"></i>結果追記・編集
+                                </button>
+                                <button data-id="${trade.id}" class="delete-trade-btn text-slate-400 hover:text-red-500 p-1.5 transition" title="削除">
+                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- 銘柄・金額スペック行 -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <div>
+                            <span class="text-[11px] text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded mr-1.5">${escapeHtml(trade.sector)}</span>
+                            <span class="text-base font-bold text-slate-900">${escapeHtml(trade.company)}</span>
+                        </div>
+                        <div class="text-xs text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <span>株価: <strong>${priceText}</strong></span>
+                            <span>×</span>
+                            <span>株数: <strong>${sharesText}</strong></span>
+                            <span>＝</span>
+                            <span class="text-sm font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">${totalText}</span>
+                        </div>
+                    </div>
+
+                    <!-- 判断の記録（理由・予想） -->
+                    <div class="bg-blue-50/60 p-3.5 rounded-xl border border-blue-100 space-y-2">
+                        <div>
+                            <p class="text-[11px] font-bold text-blue-800 mb-0.5"><i class="fa-solid fa-newspaper mr-1"></i>重視した情報・取引理由</p>
+                            <p class="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">${escapeHtml(trade.reason)}</p>
+                        </div>
+                        ${trade.prediction ? `
+                        <div class="pt-1.5 border-t border-blue-100/80">
+                            <p class="text-[11px] font-bold text-blue-800 mb-0.5"><i class="fa-solid fa-bullseye mr-1"></i>取引時の予想</p>
+                            <p class="text-xs text-slate-700">${escapeHtml(trade.prediction)}</p>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- 結果と振り返り -->
+                    <div class="bg-amber-50/60 p-3.5 rounded-xl border border-amber-100 space-y-2">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <p class="text-[11px] font-bold text-amber-900"><i class="fa-solid fa-lightbulb mr-1"></i>結果と振り返り（予想との違い・考えの変化）</p>
+                            ${resultHtml}
+                        </div>
+                        <p class="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap pt-1">${trade.reflection ? escapeHtml(trade.reflection) : '<span class="text-slate-400 italic">（株価が動いた後や売却後に、予想との違いや気づきを追記しましょう）</span>'}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // 編集・結果追記ボタンイベント
+            document.querySelectorAll('.edit-trade-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const targetTrade = state.trades.find(t => t.id === btn.dataset.id);
+                    if (targetTrade) startEditTrade(targetTrade);
+                });
+            });
+
+            // 削除ボタンイベント
+            document.querySelectorAll('.delete-trade-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const confirmed = await showConfirm("この振り返り記録を削除しますか？");
+                    if (!confirmed) return;
+                    try {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stock_trades', btn.dataset.id));
+                        showToast("記録を削除しました", "info");
+                    } catch (err) {
+                        console.error("Delete error:", err);
+                        showToast("削除に失敗しました", "error");
+                    }
+                });
+            });
+        }
+
+        // ==========================================
+        // 7. 班のまとめシートの保存・コピー
+        // ==========================================
+        document.getElementById('summary-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!db || !currentUser) return;
+
+            const q1 = document.getElementById('sum-q1').value.trim();
+            const q2 = document.getElementById('sum-q2').value.trim();
+            const q3 = document.getElementById('sum-q3').value.trim();
+            const q4 = document.getElementById('sum-q4').value.trim();
+
+            try {
+                const summaryDoc = doc(db, 'artifacts', appId, 'public', 'data', 'stock_summaries', state.roomId);
+                await setDoc(summaryDoc, {
+                    roomId: state.roomId,
+                    q1, q2, q3, q4,
+                    updatedBy: state.userName,
+                    updatedAt: Date.now()
+                }, { merge: true });
+
+                showToast("班のまとめを保存し、全員に共有しました！");
+            } catch (err) {
+                console.error("Summary save error:", err);
+                showToast("保存に失敗しました。", "error");
+            }
+        });
+
+        // 発表用テキストのクリップボードコピー
+        document.getElementById('copy-report-btn').addEventListener('click', () => {
+            const q1 = document.getElementById('sum-q1').value.trim() || '（未記入）';
+            const q2 = document.getElementById('sum-q2').value.trim() || '（未記入）';
+            const q3 = document.getElementById('sum-q3').value.trim() || '（未記入）';
+            const q4 = document.getElementById('sum-q4').value.trim() || '（未記入）';
+
+            const memberLines = state.members.map(m => {
+                const asset = typeof m.currentAsset === 'number' ? m.currentAsset : INITIAL_CAPITAL;
+                const diff = asset - INITIAL_CAPITAL;
+                return `・${m.userName}: ${formatYen(asset)}（元本比 ${diff >= 0 ? '+' : ''}${formatYen(diff)}）`;
+            }).join('\n');
+
+            const reportText = `【株式学習ゲーム 振り返りレポート】
+班コード: ${state.roomId}
+
+■ 班メンバーの運用結果（元本500万円）
+${memberLines}
+
+■ 1. 株価変動の背景にあった社会・経済ニュース
+${q1}
+
+■ 2. 班の4人の投資判断の違いと工夫
+${q2}
+
+■ 3. 失敗・反省点から学んだリスク管理
+${q3}
+
+■ 4. 株式会社・株式市場の社会的役割についての考察
+${q4}`;
+
+            // iframe環境対応のため execCommand('copy') を使用
+            const textarea = document.createElement('textarea');
+            textarea.value = reportText;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast("発表・提出用レポートをクリップボードにコピーしました！");
+            } catch (err) {
+                showToast("コピーに失敗しました。", "error");
+            }
+            document.body.removeChild(textarea);
+        });
+
+        // XSS対策エスケープ関数
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // 起動時にFirebase初期化
+        window.addEventListener('DOMContentLoaded', initFirebase);
+    </script>
+</body>
+</html>
