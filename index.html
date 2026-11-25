@@ -50,9 +50,13 @@
             </div>
             
             <!-- 班・ログイン状態表示 -->
-            <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <button id="open-config-btn" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg transition flex items-center space-x-1" title="クラウド同期設定">
+                    <i class="fa-solid fa-cloud text-blue-400"></i>
+                    <span id="sync-status-label" class="hidden sm:inline">同期設定</span>
+                </button>
                 <div id="room-badge" class="hidden bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-full text-xs sm:text-sm flex items-center space-x-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="sync-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                     <span>ルーム: <strong id="current-room-display" class="text-blue-400">---</strong></span>
                     <span class="text-slate-500">|</span>
                     <span id="current-user-display" class="font-medium text-slate-200">未設定</span>
@@ -491,6 +495,40 @@
         </div>
     </div>
 
+    <!-- GitHub公開用：Firebaseクラウド同期設定モーダル -->
+    <div id="config-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center">
+                    <i class="fa-solid fa-cloud-arrow-up text-blue-600 mr-2"></i>4人リアルタイム同期の設定（GitHub公開用）
+                </h3>
+                <button id="close-config-btn" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div id="env-mode-notice" class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800 leading-relaxed">
+                現在は<strong>単体動作モード（この端末のみ保存）</strong>で起動しています。<br>
+                GitHub Pages等で4人の端末をリアルタイム同期させる場合は、Google Firebase（無料）のウェブアプリ設定（JSON形式）を下に貼り付けて保存してください。
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Firebase Config（JSON形式）</label>
+                <textarea id="custom-firebase-config" rows="6" placeholder='{"apiKey": "AIzaSy...", "authDomain": "...", "projectId": "...", "storageBucket": "...", "messagingSenderId": "...", "appId": "..."}'
+                    class="w-full p-3 rounded-xl border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                <p class="text-[11px] text-slate-400 mt-1">※Firebaseコンソールの「プロジェクトの設定」＞「マイアプリ」から取得したオブジェクトをJSON形式で入力します。</p>
+            </div>
+
+            <div class="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-slate-100">
+                <button type="button" id="clear-config-btn" class="text-xs text-red-600 hover:underline">設定をリセット（単体モードに戻す）</button>
+                <div class="flex space-x-2">
+                    <button type="button" id="cancel-config-btn" class="px-4 py-2 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100">閉じる</button>
+                    <button type="button" id="save-config-btn" class="px-4 py-2 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700">保存して再接続</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase & アプリケーションロジック -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -500,10 +538,11 @@
         // ==========================================
         // 1. Firebase 初期化と状態管理
         // ==========================================
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'stock-game-reflection-default';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'stock-game-reflection-github';
         let db = null;
         let auth = null;
         let currentUser = null;
+        let isCloudMode = false; // true: Firebase同期, false: ブラウザ内インメモリ＋セッション動作
 
         // アプリの現在のセッション状態
         const state = {
@@ -515,65 +554,50 @@
             summary: {},
             unsubscribers: []
         };
-
-        const INITIAL_CAPITAL = 5000000; // 元本500万円
-
-        // トースト通知表示関数
-        function showToast(message, type = 'success') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            const bgColor = type === 'error' ? 'bg-red-600' : (type === 'info' ? 'bg-slate-800' : 'bg-emerald-600');
-            const icon = type === 'error' ? 'fa-circle-exclamation' : (type === 'info' ? 'fa-circle-info' : 'fa-circle-check');
-            
-            toast.className = `${bgColor} text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center space-x-2 transform transition-all duration-300 translate-y-2 opacity-0`;
-            toast.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
-            container.appendChild(toast);
-
-            requestAnimationFrame(() => {
-                toast.classList.remove('translate-y-2', 'opacity-0');
-            });
-
-            setTimeout(() => {
-                toast.classList.add('opacity-0', 'translate-y-2');
-                setTimeout(() => toast.remove(), 300);
-            }, 3500);
-        }
-
-        // カスタム確認ダイアログ
-        function showConfirm(message) {
-            return new Promise((resolve) => {
-                const modal = document.getElementById('confirm-modal');
-                document.getElementById('confirm-message').textContent = message;
-                modal.classList.remove('hidden');
-
-                const cleanup = (result) => {
-                    modal.classList.add('hidden');
-                    document.getElementById('confirm-ok').onclick = null;
-                    document.getElementById('confirm-cancel').onclick = null;
-                    resolve(result);
-                };
-
-                document.getElementById('confirm-ok').onclick = () => cleanup(true);
-                document.getElementById('confirm-cancel').onclick = () => cleanup(false);
-            });
-        }
-
-        // 数値フォーマット（円）
-        function formatYen(num) {
-            return Number(num).toLocaleString('ja-JP') + ' 円';
-        }
-
+// ... existing code ... -->
         // ==========================================
-        // 2. 認証のセットアップ
+        // 2. 認証・同期モードのセットアップ
         // ==========================================
+        function updateSyncBadge() {
+            const label = document.getElementById('sync-status-label');
+            const dot = document.getElementById('sync-dot');
+            const notice = document.getElementById('env-mode-notice');
+            if (isCloudMode) {
+                label.textContent = 'クラウド同期中';
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+                if (notice) {
+                    notice.className = 'bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 leading-relaxed';
+                    notice.innerHTML = '<strong>クラウド同期モード（有効）</strong>：同じ班コードを入力した4人の端末とリアルタイムでデータが共有されます。';
+                }
+            } else {
+                label.textContent = '単体モード';
+                dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+                if (notice) {
+                    notice.className = 'bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 leading-relaxed';
+                    notice.innerHTML = '現在は<strong>単体動作モード（GitHub/ローカル環境）</strong>で起動しています。画面操作や振り返り記録はすべてそのまま使えます。<br>※4人同時リアルタイム同期を行う場合は、下にFirebase設定を貼り付けてください。';
+                }
+            }
+        }
+
         async function initFirebase() {
             try {
-                if (typeof __firebase_config === 'undefined') {
-                    console.warn("Firebase config not found. Running in local fallback mode.");
+                let configObj = null;
+
+                // 1) 環境変数またはURLハッシュ/名前付きパラメータからの設定取得
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    configObj = JSON.parse(__firebase_config);
+                } else if (window.name && window.name.startsWith('FB_CFG:')) {
+                    configObj = JSON.parse(window.name.slice(7));
+                }
+
+                if (!configObj) {
+                    // 設定がない場合（GitHub Pagesなど）は単体モードで正常起動させる
+                    isCloudMode = false;
+                    updateSyncBadge();
                     return;
                 }
-                const firebaseConfig = JSON.parse(__firebase_config);
-                const app = initializeApp(firebaseConfig);
+
+                const app = initializeApp(configObj);
                 db = getFirestore(app);
                 auth = getAuth(app);
 
@@ -585,22 +609,55 @@
 
                 onAuthStateChanged(auth, (user) => {
                     currentUser = user;
+                    isCloudMode = !!user;
+                    updateSyncBadge();
                 });
             } catch (error) {
                 console.error("Firebase init error:", error);
-                showToast("通信の初期化に失敗しました。再読み込みしてください。", "error");
+                isCloudMode = false;
+                updateSyncBadge();
+                showToast("クラウド接続をスキップし、単体モードで起動しました。", "info");
             }
         }
+
+        // 同期設定モーダルの開閉と保存
+        document.getElementById('open-config-btn').addEventListener('click', () => {
+            if (window.name && window.name.startsWith('FB_CFG:')) {
+                document.getElementById('custom-firebase-config').value = window.name.slice(7);
+            }
+            document.getElementById('config-modal').classList.remove('hidden');
+        });
+        document.getElementById('close-config-btn').addEventListener('click', () => {
+            document.getElementById('config-modal').classList.add('hidden');
+        });
+        document.getElementById('cancel-config-btn').addEventListener('click', () => {
+            document.getElementById('config-modal').classList.add('hidden');
+        });
+        document.getElementById('save-config-btn').addEventListener('click', () => {
+            const raw = document.getElementById('custom-firebase-config').value.trim();
+            try {
+                // JSオブジェクト形式の貼り付けにも対応できるよう簡易整形
+                const normalized = raw.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":').replace(/'/g, '"');
+                const parsed = JSON.parse(normalized);
+                if (!parsed.apiKey || !parsed.projectId) {
+                    throw new Error("apiKey または projectId が不足しています");
+                }
+                window.name = 'FB_CFG:' + JSON.stringify(parsed);
+                location.reload();
+            } catch (e) {
+                showToast("JSONの形式が正しくありません。apiKeyやprojectIdを含む形式を確認してください。", "error");
+            }
+        });
+        document.getElementById('clear-config-btn').addEventListener('click', () => {
+            window.name = '';
+            location.reload();
+        });
 
         // ==========================================
         // 3. ルーム参加・データ同期ロジック
         // ==========================================
         document.getElementById('join-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!currentUser && db) {
-                showToast("認証待機中です。もう一度ボタンを押してください。", "info");
-                return;
-            }
 
             const rawRoomId = document.getElementById('input-room-id').value.trim();
             const userName = document.getElementById('input-user-name').value.trim();
@@ -611,7 +668,6 @@
             const safeRoomId = rawRoomId.replace(/[\/\.#\$\[\]]/g, '_');
             state.roomId = safeRoomId;
             state.userName = userName;
-            // 同じ名前で再ログインした場合は同じメンバーデータを更新できるようにIDを生成
             state.memberId = `${safeRoomId}_${userName}`;
 
             // 取引日付の初期値を今日に設定
@@ -625,197 +681,28 @@
             document.getElementById('current-room-display').textContent = rawRoomId;
             document.getElementById('current-user-display').textContent = userName;
 
-            // メンバー情報をFirestoreに登録
-            await registerMemberIfNeeded();
-
-            // リアルタイムリスナー開始
-            subscribeToRoomData();
-            showToast(`「${rawRoomId}」の共有シートに接続しました！`);
-        });
-
-        // ルーム切替ボタン
-        document.getElementById('change-room-btn').addEventListener('click', () => {
-            state.unsubscribers.forEach(unsub => unsub());
-            state.unsubscribers = [];
-            document.getElementById('dashboard-screen').classList.add('hidden');
-            document.getElementById('room-badge').classList.add('hidden');
-            document.getElementById('change-room-btn').classList.add('hidden');
-            document.getElementById('setup-screen').classList.remove('hidden');
-        });
-
-        // メンバー初期登録
-        async function registerMemberIfNeeded() {
-            if (!db || !currentUser) return;
-            try {
-                const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'stock_members', state.memberId);
-                await setDoc(memberRef, {
-                    roomId: state.roomId,
-                    userName: state.userName,
-                    updatedAt: Date.now()
-                }, { merge: true });
-            } catch (err) {
-                console.error("Member register error:", err);
-            }
-        }
-
-        // Firestore リアルタイム購読（RULE 1 & RULE 2 準拠: シンプルなcollectionクエリ＋メモリ内フィルタリング）
-        function subscribeToRoomData() {
-            if (!db || !currentUser) return;
-
-            // 既存のリスナー解除
-            state.unsubscribers.forEach(unsub => unsub());
-            state.unsubscribers = [];
-
-            // 1. メンバー一覧の購読
-            const membersCol = collection(db, 'artifacts', appId, 'public', 'data', 'stock_members');
-            const unsubMembers = onSnapshot(membersCol, (snapshot) => {
-                const list = [];
-                snapshot.forEach(docSnap => {
-                    const data = docSnap.data();
-                    if (data.roomId === state.roomId) {
-                        list.push({ id: docSnap.id, ...data });
-                    }
-                });
-                // 更新日時順にソート
-                list.sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
-                state.members = list;
+            if (isCloudMode && db && currentUser) {
+                // クラウド同期モード
+                await registerMemberIfNeeded();
+                subscribeToRoomData();
+                showToast(`「${rawRoomId}」の共有シートに接続しました！`);
+            } else {
+                // 単体モード（GitHub等でFirebase未設定時でもそのまま使えるようにする）
+                if (!state.members.some(m => m.id === state.memberId)) {
+                    state.members.push({
+                        id: state.memberId,
+                        roomId: state.roomId,
+                        userName: state.userName,
+                        currentAsset: INITIAL_CAPITAL,
+                        strategyMemo: '',
+                        updatedAt: Date.now()
+                    });
+                }
                 renderMembers();
                 updateMemberFilterDropdown();
-            }, (error) => {
-                console.error("Members snapshot error:", error);
-            });
-
-            // 2. 売買・振り返りログの購読
-            const tradesCol = collection(db, 'artifacts', appId, 'public', 'data', 'stock_trades');
-            const unsubTrades = onSnapshot(tradesCol, (snapshot) => {
-                const list = [];
-                snapshot.forEach(docSnap => {
-                    const data = docSnap.data();
-                    if (data.roomId === state.roomId) {
-                        list.push({ id: docSnap.id, ...data });
-                    }
-                });
-                // 取引日付または作成日時の新しい順にソート
-                list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                state.trades = list;
                 updateCompanyFilterDropdown();
                 renderTrades();
-                renderMembers(); // 取引件数のバッジ更新のため
-            }, (error) => {
-                console.error("Trades snapshot error:", error);
-            });
-
-            // 3. 班のまとめシートの購読
-            const summaryDoc = doc(db, 'artifacts', appId, 'public', 'data', 'stock_summaries', state.roomId);
-            const unsubSummary = onSnapshot(summaryDoc, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    state.summary = data;
-                    // 自分が入力中でなければ反映
-                    if (document.activeElement.id !== 'sum-q1') document.getElementById('sum-q1').value = data.q1 || '';
-                    if (document.activeElement.id !== 'sum-q2') document.getElementById('sum-q2').value = data.q2 || '';
-                    if (document.activeElement.id !== 'sum-q3') document.getElementById('sum-q3').value = data.q3 || '';
-                    if (document.activeElement.id !== 'sum-q4') document.getElementById('sum-q4').value = data.q4 || '';
-                    if (data.updatedAt) {
-                        const dateStr = new Date(data.updatedAt).toLocaleString('ja-JP');
-                        document.getElementById('summary-last-updated').textContent = `最終保存: ${dateStr}（${data.updatedBy || ''}）`;
-                    }
-                }
-            }, (error) => {
-                console.error("Summary snapshot error:", error);
-            });
-
-            state.unsubscribers.push(unsubMembers, unsubTrades, unsubSummary);
-        }
-
-        // ==========================================
-        // 4. タブ切り替え＆自動計算・補助機能
-        // ==========================================
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.tab-btn').forEach(b => {
-                    b.classList.remove('tab-active');
-                    b.classList.add('text-slate-500');
-                });
-                btn.classList.add('tab-active');
-                btn.classList.remove('text-slate-500');
-
-                const targetId = `tab-${btn.dataset.tab}`;
-                document.querySelectorAll('.tab-content').forEach(content => {
-                    content.classList.add('hidden');
-                });
-                document.getElementById(targetId).classList.remove('hidden');
-            });
-        });
-
-        // 調べる視点タグのワンクリック挿入
-        document.querySelectorAll('.perspective-tag').forEach(tag => {
-            tag.addEventListener('click', () => {
-                const target = document.getElementById('trade-reason');
-                const label = `【${tag.dataset.val}】`;
-                if (!target.value.includes(label)) {
-                    target.value = target.value ? `${target.value}\n${label} ` : `${label} `;
-                }
-                target.focus();
-            });
-        });
-
-        // 取引金額＆概算損益のリアルタイム自動計算
-        function updateTradeCalculations() {
-            const price = parseFloat(document.getElementById('trade-price').value) || 0;
-            const shares = parseInt(document.getElementById('trade-shares').value, 10) || 0;
-            const resultPriceInput = document.getElementById('trade-result-price').value;
-            const action = document.getElementById('trade-action').value;
-
-            const totalAmount = Math.round(price * shares);
-            document.getElementById('calc-total-amount').textContent = formatYen(totalAmount);
-
-            const profitPreviewEl = document.getElementById('calc-profit-preview');
-            if (price > 0 && shares > 0 && resultPriceInput !== '') {
-                const resultPrice = parseFloat(resultPriceInput) || 0;
-                // 購入の場合は (現在/売却株価 - 購入株価) * 株数、売却の場合は (売却株価 - 取得目安) もしくは差額として計算
-                const diffPerShare = action === '購入' ? (resultPrice - price) : (price - resultPrice);
-                const profit = Math.round(diffPerShare * shares);
-                const rate = ((diffPerShare / price) * 100).toFixed(1);
-                const isPlus = profit >= 0;
-
-                profitPreviewEl.textContent = `${isPlus ? '+' : ''}${formatYen(profit)} (${isPlus ? '+' : ''}${rate}%)`;
-                profitPreviewEl.className = `text-xs font-bold ${isPlus ? 'text-emerald-600' : 'text-red-600'}`;
-            } else {
-                profitPreviewEl.textContent = '結果株価を入力で計算';
-                profitPreviewEl.className = 'text-xs font-bold text-slate-400';
-            }
-        }
-
-        ['trade-price', 'trade-shares', 'trade-result-price', 'trade-action'].forEach(id => {
-            document.getElementById(id).addEventListener('input', updateTradeCalculations);
-            document.getElementById(id).addEventListener('change', updateTradeCalculations);
-        });
-
-        // ==========================================
-        // 5. 資産の更新とメンバーカードの描画
-        // ==========================================
-        document.getElementById('update-asset-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (!db || !currentUser) return;
-
-            const assetVal = Number(document.getElementById('my-current-asset').value);
-            const strategyMemo = document.getElementById('my-strategy-memo').value.trim();
-
-            try {
-                const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'stock_members', state.memberId);
-                await setDoc(memberRef, {
-                    roomId: state.roomId,
-                    userName: state.userName,
-                    currentAsset: assetVal,
-                    strategyMemo: strategyMemo,
-                    updatedAt: Date.now()
-                }, { merge: true });
-
-                showToast("現在の総資産を班に共有しました！");
-            } catch (err) {
-                console.error("Asset update error:", err);
-                showToast("更新に失敗しました。", "error");
+                showToast(`「${rawRoomId}」を開きました（単体モード）`);
             }
         });
 
@@ -911,129 +798,40 @@
         }
 
         // ==========================================
-        // 6. 売買判断＆振り返り記録の追加・編集・表示・削除
+        // 5. 資産の更新とメンバーカードの描画
         // ==========================================
-        function resetTradeForm() {
-            document.getElementById('edit-trade-id').value = '';
-            document.getElementById('trade-form-title').innerHTML = '<i class="fa-solid fa-plus-circle text-blue-600 mr-2"></i><span>売買の判断と記録を追加</span>';
-            document.getElementById('trade-submit-btn').innerHTML = '<i class="fa-solid fa-paper-plane mr-1"></i>記録を保存・班に共有する';
-            document.getElementById('trade-submit-btn').classList.replace('bg-amber-600', 'bg-blue-600');
-            document.getElementById('trade-submit-btn').classList.replace('hover:bg-amber-700', 'hover:bg-blue-700');
-            document.getElementById('cancel-edit-btn').classList.add('hidden');
-
-            document.getElementById('trade-action').value = '購入';
-            document.getElementById('trade-date').valueAsDate = new Date();
-            document.getElementById('trade-company').value = '';
-            document.getElementById('trade-price').value = '';
-            document.getElementById('trade-shares').value = '';
-            document.getElementById('trade-reason').value = '';
-            document.getElementById('trade-prediction').value = '';
-            document.getElementById('trade-result-price').value = '';
-            document.getElementById('trade-reflection').value = '';
-            updateTradeCalculations();
-        }
-
-        document.getElementById('cancel-edit-btn').addEventListener('click', resetTradeForm);
-
-        // 既存レコードを編集フォームに読み込む
-        function startEditTrade(trade) {
-            document.getElementById('edit-trade-id').value = trade.id;
-            document.getElementById('trade-form-title').innerHTML = '<i class="fa-solid fa-pen-to-square text-amber-600 mr-2"></i><span>記録の編集・結果の追記</span>';
-            document.getElementById('trade-submit-btn').innerHTML = '<i class="fa-solid fa-check mr-1"></i>変更・結果の追記を保存する';
-            document.getElementById('trade-submit-btn').classList.replace('bg-blue-600', 'bg-amber-600');
-            document.getElementById('trade-submit-btn').classList.replace('hover:bg-blue-700', 'hover:bg-amber-700');
-            document.getElementById('cancel-edit-btn').classList.remove('hidden');
-
-            document.getElementById('trade-action').value = trade.action || '購入';
-            document.getElementById('trade-date').value = trade.tradeDate || '';
-            document.getElementById('trade-company').value = trade.company || '';
-            document.getElementById('trade-sector').value = trade.sector || 'IT・通信';
-            document.getElementById('trade-price').value = trade.price || '';
-            document.getElementById('trade-shares').value = trade.shares || '';
-            document.getElementById('trade-reason').value = trade.reason || '';
-            document.getElementById('trade-prediction').value = trade.prediction || '';
-            document.getElementById('trade-result-price').value = (trade.resultPrice !== null && trade.resultPrice !== undefined) ? trade.resultPrice : '';
-            document.getElementById('trade-reflection').value = trade.reflection || '';
-
-            updateTradeCalculations();
-            // フォーム位置へスムーズスクロール
-            document.getElementById('trade-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
-            showToast("結果の追記や内容の編集ができます", "info");
-        }
-
-        document.getElementById('trade-form').addEventListener('submit', async (e) => {
+        document.getElementById('update-asset-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!db || !currentUser) return;
 
-            const editId = document.getElementById('edit-trade-id').value;
-            const action = document.getElementById('trade-action').value;
-            const tradeDate = document.getElementById('trade-date').value;
-            const sector = document.getElementById('trade-sector').value;
-            const company = document.getElementById('trade-company').value.trim();
-            const price = parseFloat(document.getElementById('trade-price').value) || 0;
-            const shares = parseInt(document.getElementById('trade-shares').value, 10) || 0;
-            const totalAmount = Math.round(price * shares);
-            const reason = document.getElementById('trade-reason').value.trim();
-            const prediction = document.getElementById('trade-prediction').value.trim();
-            
-            const resultPriceRaw = document.getElementById('trade-result-price').value;
-            const resultPrice = resultPriceRaw !== '' ? parseFloat(resultPriceRaw) : null;
-            let profit = null;
-            if (resultPrice !== null && price > 0 && shares > 0) {
-                const diffPerShare = action === '購入' ? (resultPrice - price) : (price - resultPrice);
-                profit = Math.round(diffPerShare * shares);
-            }
-            const reflection = document.getElementById('trade-reflection').value.trim();
+            const assetVal = Number(document.getElementById('my-current-asset').value);
+            const strategyMemo = document.getElementById('my-strategy-memo').value.trim();
 
-            if (!company || !reason) return;
-
-            try {
-                if (editId) {
-                    // 既存データの更新（結果追記・編集）
-                    const tradeDoc = doc(db, 'artifacts', appId, 'public', 'data', 'stock_trades', editId);
-                    await updateDoc(tradeDoc, {
-                        action,
-                        tradeDate,
-                        sector,
-                        company,
-                        price,
-                        shares,
-                        totalAmount,
-                        reason,
-                        prediction,
-                        resultPrice,
-                        profit,
-                        reflection,
-                        updatedAt: Date.now()
-                    });
-                    showToast("記録を更新（結果・振り返りを反映）しました！");
-                } else {
-                    // 新規作成
-                    const tradesCol = collection(db, 'artifacts', appId, 'public', 'data', 'stock_trades');
-                    await addDoc(tradesCol, {
+            if (isCloudMode && db && currentUser) {
+                try {
+                    const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'stock_members', state.memberId);
+                    await setDoc(memberRef, {
                         roomId: state.roomId,
                         userName: state.userName,
-                        action,
-                        tradeDate,
-                        sector,
-                        company,
-                        price,
-                        shares,
-                        totalAmount,
-                        reason,
-                        prediction,
-                        resultPrice,
-                        profit,
-                        reflection,
-                        createdAt: Date.now()
-                    });
-                    showToast("売買の記録を保存し、班に共有しました！");
-                }
+                        currentAsset: assetVal,
+                        strategyMemo: strategyMemo,
+                        updatedAt: Date.now()
+                    }, { merge: true });
 
-                resetTradeForm();
-            } catch (err) {
-                console.error("Trade save error:", err);
-                showToast("保存に失敗しました。", "error");
+                    showToast("現在の総資産を班に共有しました！");
+                } catch (err) {
+                    console.error("Asset update error:", err);
+                    showToast("更新に失敗しました。", "error");
+                }
+            } else {
+                // 単体モード更新
+                const idx = state.members.findIndex(m => m.id === state.memberId);
+                if (idx >= 0) {
+                    state.members[idx].currentAsset = assetVal;
+                    state.members[idx].strategyMemo = strategyMemo;
+                    state.members[idx].updatedAt = Date.now();
+                }
+                renderMembers();
+                showToast("現在の総資産を更新しました！");
             }
         });
 
@@ -1176,57 +974,108 @@
                         <div class="text-xs text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1">
                             <span>株価: <strong>${priceText}</strong></span>
                             <span>×</span>
-                            <span>株数: <strong>${sharesText}</strong></span>
-                            <span>＝</span>
-                            <span class="text-sm font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">${totalText}</span>
-                        </div>
-                    </div>
+        document.getElementById('trade-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
 
-                    <!-- 判断の記録（理由・予想） -->
-                    <div class="bg-blue-50/60 p-3.5 rounded-xl border border-blue-100 space-y-2">
-                        <div>
-                            <p class="text-[11px] font-bold text-blue-800 mb-0.5"><i class="fa-solid fa-newspaper mr-1"></i>重視した情報・取引理由</p>
-                            <p class="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">${escapeHtml(trade.reason)}</p>
-                        </div>
-                        ${trade.prediction ? `
-                        <div class="pt-1.5 border-t border-blue-100/80">
-                            <p class="text-[11px] font-bold text-blue-800 mb-0.5"><i class="fa-solid fa-bullseye mr-1"></i>取引時の予想</p>
-                            <p class="text-xs text-slate-700">${escapeHtml(trade.prediction)}</p>
-                        </div>
-                        ` : ''}
-                    </div>
+            const editId = document.getElementById('edit-trade-id').value;
+            const action = document.getElementById('trade-action').value;
+            const tradeDate = document.getElementById('trade-date').value;
+            const sector = document.getElementById('trade-sector').value;
+            const company = document.getElementById('trade-company').value.trim();
+            const price = parseFloat(document.getElementById('trade-price').value) || 0;
+            const shares = parseInt(document.getElementById('trade-shares').value, 10) || 0;
+            const totalAmount = Math.round(price * shares);
+            const reason = document.getElementById('trade-reason').value.trim();
+            const prediction = document.getElementById('trade-prediction').value.trim();
+            
+            const resultPriceRaw = document.getElementById('trade-result-price').value;
+            const resultPrice = resultPriceRaw !== '' ? parseFloat(resultPriceRaw) : null;
+            let profit = null;
+            if (resultPrice !== null && price > 0 && shares > 0) {
+                const diffPerShare = action === '購入' ? (resultPrice - price) : (price - resultPrice);
+                profit = Math.round(diffPerShare * shares);
+            }
+            const reflection = document.getElementById('trade-reflection').value.trim();
 
-                    <!-- 結果と振り返り -->
-                    <div class="bg-amber-50/60 p-3.5 rounded-xl border border-amber-100 space-y-2">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <p class="text-[11px] font-bold text-amber-900"><i class="fa-solid fa-lightbulb mr-1"></i>結果と振り返り（予想との違い・考えの変化）</p>
-                            ${resultHtml}
-                        </div>
-                        <p class="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap pt-1">${trade.reflection ? escapeHtml(trade.reflection) : '<span class="text-slate-400 italic">（株価が動いた後や売却後に、予想との違いや気づきを追記しましょう）</span>'}</p>
-                    </div>
-                `;
-                container.appendChild(card);
-            });
+            if (!company || !reason) return;
 
-            // 編集・結果追記ボタンイベント
-            document.querySelectorAll('.edit-trade-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const targetTrade = state.trades.find(t => t.id === btn.dataset.id);
-                    if (targetTrade) startEditTrade(targetTrade);
-                });
-            });
-
+            if (isCloudMode && db && currentUser) {
+                try {
+                    if (editId) {
+                        // 既存データの更新（結果追記・編集）
+                        const tradeDoc = doc(db, 'artifacts', appId, 'public', 'data', 'stock_trades', editId);
+                        await updateDoc(tradeDoc, {
+                            action, tradeDate, sector, company, price, shares, totalAmount,
+                            reason, prediction, resultPrice, profit, reflection,
+                            updatedAt: Date.now()
+                        });
+                        showToast("記録を更新（結果・振り返りを反映）しました！");
+                    } else {
+                        // 新規作成
+                        const tradesCol = collection(db, 'artifacts', appId, 'public', 'data', 'stock_trades');
+                        await addDoc(tradesCol, {
+                            roomId: state.roomId,
+                            userName: state.userName,
+                            action, tradeDate, sector, company, price, shares, totalAmount,
+                            reason, prediction, resultPrice, profit, reflection,
+                            createdAt: Date.now()
+                        });
+                        showToast("売買の記録を保存し、班に共有しました！");
+                    }
+                    resetTradeForm();
+                } catch (err) {
+                    console.error("Trade save error:", err);
+                    showToast("保存に失敗しました。", "error");
+                }
+            } else {
+                // 単体モード保存・更新
+                if (editId) {
+                    const idx = state.trades.findIndex(t => t.id === editId);
+                    if (idx >= 0) {
+                        state.trades[idx] = {
+                            ...state.trades[idx],
+                            action, tradeDate, sector, company, price, shares, totalAmount,
+                            reason, prediction, resultPrice, profit, reflection,
+                            updatedAt: Date.now()
+                        };
+                    }
+                    showToast("記録を更新しました！");
+                } else {
+                    state.trades.unshift({
+                        id: 'local_' + Date.now(),
+                        roomId: state.roomId,
+                        userName: state.userName,
+                        action, tradeDate, sector, company, price, shares, totalAmount,
+                        reason, prediction, resultPrice, profit, reflection,
+                        createdAt: Date.now()
+                    });
+                    showToast("売買の記録を保存しました！");
+                }
+                updateCompanyFilterDropdown();
+                renderTrades();
+                renderMembers();
+                resetTradeForm();
+            }
+        });
             // 削除ボタンイベント
             document.querySelectorAll('.delete-trade-btn').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const confirmed = await showConfirm("この振り返り記録を削除しますか？");
                     if (!confirmed) return;
-                    try {
-                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stock_trades', btn.dataset.id));
+                    if (isCloudMode && db && currentUser) {
+                        try {
+                            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stock_trades', btn.dataset.id));
+                            showToast("記録を削除しました", "info");
+                        } catch (err) {
+                            console.error("Delete error:", err);
+                            showToast("削除に失敗しました", "error");
+                        }
+                    } else {
+                        state.trades = state.trades.filter(t => t.id !== btn.dataset.id);
+                        updateCompanyFilterDropdown();
+                        renderTrades();
+                        renderMembers();
                         showToast("記録を削除しました", "info");
-                    } catch (err) {
-                        console.error("Delete error:", err);
-                        showToast("削除に失敗しました", "error");
                     }
                 });
             });
@@ -1237,72 +1086,33 @@
         // ==========================================
         document.getElementById('summary-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!db || !currentUser) return;
 
             const q1 = document.getElementById('sum-q1').value.trim();
             const q2 = document.getElementById('sum-q2').value.trim();
             const q3 = document.getElementById('sum-q3').value.trim();
             const q4 = document.getElementById('sum-q4').value.trim();
 
-            try {
-                const summaryDoc = doc(db, 'artifacts', appId, 'public', 'data', 'stock_summaries', state.roomId);
-                await setDoc(summaryDoc, {
-                    roomId: state.roomId,
-                    q1, q2, q3, q4,
-                    updatedBy: state.userName,
-                    updatedAt: Date.now()
-                }, { merge: true });
+            if (isCloudMode && db && currentUser) {
+                try {
+                    const summaryDoc = doc(db, 'artifacts', appId, 'public', 'data', 'stock_summaries', state.roomId);
+                    await setDoc(summaryDoc, {
+                        roomId: state.roomId,
+                        q1, q2, q3, q4,
+                        updatedBy: state.userName,
+                        updatedAt: Date.now()
+                    }, { merge: true });
 
-                showToast("班のまとめを保存し、全員に共有しました！");
-            } catch (err) {
-                console.error("Summary save error:", err);
-                showToast("保存に失敗しました。", "error");
+                    showToast("班のまとめを保存し、全員に共有しました！");
+                } catch (err) {
+                    console.error("Summary save error:", err);
+                    showToast("保存に失敗しました。", "error");
+                }
+            } else {
+                state.summary = { q1, q2, q3, q4, updatedBy: state.userName, updatedAt: Date.now() };
+                const dateStr = new Date().toLocaleString('ja-JP');
+                document.getElementById('summary-last-updated').textContent = `最終保存: ${dateStr}（${state.userName}）`;
+                showToast("班のまとめを保存しました！");
             }
-        });
-
-        // 発表用テキストのクリップボードコピー
-        document.getElementById('copy-report-btn').addEventListener('click', () => {
-            const q1 = document.getElementById('sum-q1').value.trim() || '（未記入）';
-            const q2 = document.getElementById('sum-q2').value.trim() || '（未記入）';
-            const q3 = document.getElementById('sum-q3').value.trim() || '（未記入）';
-            const q4 = document.getElementById('sum-q4').value.trim() || '（未記入）';
-
-            const memberLines = state.members.map(m => {
-                const asset = typeof m.currentAsset === 'number' ? m.currentAsset : INITIAL_CAPITAL;
-                const diff = asset - INITIAL_CAPITAL;
-                return `・${m.userName}: ${formatYen(asset)}（元本比 ${diff >= 0 ? '+' : ''}${formatYen(diff)}）`;
-            }).join('\n');
-
-            const reportText = `【株式学習ゲーム 振り返りレポート】
-班コード: ${state.roomId}
-
-■ 班メンバーの運用結果（元本500万円）
-${memberLines}
-
-■ 1. 株価変動の背景にあった社会・経済ニュース
-${q1}
-
-■ 2. 班の4人の投資判断の違いと工夫
-${q2}
-
-■ 3. 失敗・反省点から学んだリスク管理
-${q3}
-
-■ 4. 株式会社・株式市場の社会的役割についての考察
-${q4}`;
-
-            // iframe環境対応のため execCommand('copy') を使用
-            const textarea = document.createElement('textarea');
-            textarea.value = reportText;
-            document.body.appendChild(textarea);
-            textarea.select();
-            try {
-                document.execCommand('copy');
-                showToast("発表・提出用レポートをクリップボードにコピーしました！");
-            } catch (err) {
-                showToast("コピーに失敗しました。", "error");
-            }
-            document.body.removeChild(textarea);
         });
 
         // XSS対策エスケープ関数
